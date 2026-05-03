@@ -179,6 +179,10 @@ function OverviewTab({ data, filtered, periodComparison }) {
         </div>
       </div>
 
+      {sorted.length > 0 && (
+        <LeaderboardCard sorted={sorted} periodLabel={PERIODES.find(p => p.current)?.label || "Periode Aktif"}/>
+      )}
+
       <div className="grid-2-eq">
         <div className="card">
           <div className="card-head">
@@ -266,6 +270,73 @@ function PengajarRanking({ list, kind }) {
           <span className={"score-pill " + scoreClass(p.avg)}>{fmtScore(p.avg)}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+function LeaderboardCard({ sorted, periodLabel }) {
+  const [showAll, uS2] = uS(false);
+  const maxAvg = sorted.length ? sorted[0].avg : 100;
+  const visible = showAll ? sorted : sorted.slice(0, 5);
+  const medalColors = [
+    { bg: "oklch(0.92 0.08 85)", color: "oklch(0.45 0.16 85)", label: "🥇" },
+    { bg: "oklch(0.93 0.04 220)", color: "oklch(0.45 0.1 220)", label: "🥈" },
+    { bg: "oklch(0.93 0.07 45)", color: "oklch(0.5 0.14 45)", label: "🥉" },
+  ];
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div>
+          <div className="card-title">Klasemen Pengajar</div>
+          <div className="card-sub">{sorted.length} pengajar · {periodLabel}</div>
+        </div>
+        <span className="chip accent"><Icon name="star" size={12}/> Periode Aktif</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {visible.map((p, i) => {
+          const medal = medalColors[i];
+          const barPct = maxAvg > 0 ? (p.avg / maxAvg) * 100 : 0;
+          return (
+            <div key={p.name} style={{
+              display: "flex", alignItems: "center", gap: 10,
+              padding: "7px 10px", borderRadius: 10,
+              background: i < 3 ? medal.bg + "55" : (i % 2 === 0 ? "var(--surface-2)" : "transparent"),
+              transition: "background 0.15s",
+            }}>
+              <div style={{
+                width: 26, height: 26, borderRadius: 8, fontSize: i < 3 ? 14 : 11,
+                fontWeight: 700, display: "grid", placeItems: "center",
+                fontFamily: "var(--font-mono)",
+                background: i < 3 ? medal.bg : "var(--surface-2)",
+                color: i < 3 ? medal.color : "var(--fg-muted)",
+                flexShrink: 0,
+              }}>
+                {i < 3 ? medal.label : i + 1}
+              </div>
+              <Avatar name={p.name} initials={p.initials} size="sm"/>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 3 }}>
+                  <div style={{ flex: 1, height: 4, background: "var(--surface-2)", borderRadius: 999, overflow: "hidden", maxWidth: 160 }}>
+                    <div style={{ height: "100%", width: barPct + "%", background: i < 3 ? medal.color : "var(--accent)", borderRadius: 999, transition: "width 0.5s" }}/>
+                  </div>
+                  <span style={{ fontSize: 11, color: "var(--fg-muted)" }}>{p.count} respons</span>
+                </div>
+              </div>
+              <span className={"score-pill " + scoreClass(p.avg)}>{fmtScore(p.avg)}</span>
+            </div>
+          );
+        })}
+      </div>
+      {sorted.length > 5 && (
+        <button onClick={() => uS2(v => !v)} style={{
+          marginTop: 10, width: "100%", padding: "7px 0", borderRadius: 8,
+          border: "1px dashed var(--border)", background: "transparent",
+          color: "var(--fg-muted)", fontSize: 12.5, cursor: "pointer", fontWeight: 500,
+        }}>
+          {showAll ? "Sembunyikan ↑" : `Tampilkan semua ${sorted.length} pengajar ↓`}
+        </button>
+      )}
     </div>
   );
 }

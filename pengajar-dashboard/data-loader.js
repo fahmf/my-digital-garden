@@ -42,14 +42,18 @@
     });
     const PENGAJAR = Object.values(pengajarMap).sort((a, b) => a.name.localeCompare(b.name));
 
-    // Build DIMENSIONS dari dimensions array
-    const DIMENSIONS = dimensions.map(d => ({
-      key: d.key,
-      label: d.label,
-      short: d.label.length > 12 ? d.label.slice(0, 12) + "…" : d.label,
-      col: d.col,
-      hasTextFeedback: (d.textColIndex ?? -1) >= 0,
-    }));
+    // Build DIMENSIONS dari dimensions array — terapkan alias label jika ada
+    const LABEL_ALIASES = (window.DASHBOARD_CONFIG && window.DASHBOARD_CONFIG.LABEL_ALIASES) || {};
+    const DIMENSIONS = dimensions.map(d => {
+      const displayLabel = LABEL_ALIASES[d.label] || d.label;
+      return {
+        key: d.key,
+        label: displayLabel,
+        short: displayLabel.length > 12 ? displayLabel.slice(0, 12) + "…" : displayLabel,
+        col: d.col,
+        hasTextFeedback: (d.textColIndex ?? -1) >= 0,
+      };
+    });
 
     // Enrich responses
     const enriched = responses.map(r => ({

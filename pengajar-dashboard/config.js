@@ -42,4 +42,11 @@ window.DASHBOARD_CONFIG = {
   // ── Nama Admin (ditampilkan di pojok kanan atas) ───────
   ADMIN_NAME: "Kepala I'dad",
 
+  // ── Alias label dimensi ────────────────────────────────
+  // Ganti label yang datang dari header Google Sheet dengan teks yang lebih sesuai.
+  // Key = label asli dari sheet, Value = label yang ditampilkan di dashboard.
+  LABEL_ALIASES: {
+    "Penguasaan Materi": "Penjelasan Mudah",
+  },
+
 };
