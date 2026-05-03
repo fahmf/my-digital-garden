@@ -59,10 +59,18 @@ function PINTab({ data }) {
     return pins[name] || "——";
   };
 
+  const PIN_PAGE = 25;
+  const [pinPage, setPinPage] = useState(1);
+
   const list = data.PENGAJAR.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
-  const raportUrl = (name) => `Raport.html?name=${encodeURIComponent(name)}`;
+  // Reset halaman saat search berubah
+  useEffect(() => { setPinPage(1); }, [search]);
+
+  const totalPages = Math.ceil(list.length / PIN_PAGE);
+  const pagedList  = list.slice((pinPage - 1) * PIN_PAGE, pinPage * PIN_PAGE);
+  const raportUrl  = (name) => `Raport.html?name=${encodeURIComponent(name)}`;
   const activePeriode = data.PERIODES.find(p => p.current);
 
   return (
@@ -148,7 +156,7 @@ function PINTab({ data }) {
               </tr>
             </thead>
             <tbody>
-              {list.map((p, i) => {
+              {pagedList.map((p, i) => {
                 const pin = getPin(p.name);
                 const rs = data.responses.filter(r => r.pengajar === p.name && r.periode === activePeriode.id);
                 const avg = rs.length ? rs.reduce((s,r)=>s+r.avg,0)/rs.length : null;
@@ -196,6 +204,41 @@ function PINTab({ data }) {
             </tbody>
           </table>
         </div>
+        {totalPages > 1 && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12.5 }}>
+            <span style={{ color: "var(--fg-muted)" }}>
+              Menampilkan {(pinPage - 1) * PIN_PAGE + 1}–{Math.min(pinPage * PIN_PAGE, list.length)} dari {list.length} pengajar
+            </span>
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <button disabled={pinPage === 1} onClick={() => setPinPage(1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === 1 ? "default" : "pointer", opacity: pinPage === 1 ? 0.4 : 1 }}>«</button>
+              <button disabled={pinPage === 1} onClick={() => setPinPage(p => p - 1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === 1 ? "default" : "pointer", opacity: pinPage === 1 ? 0.4 : 1 }}>‹</button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - pinPage) <= 1)
+                .reduce((acc, p, idx, arr) => {
+                  if (idx > 0 && p - arr[idx-1] > 1) acc.push("…");
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((p, i) => p === "…" ? (
+                  <span key={"e"+i} style={{ padding: "4px 6px", fontSize: 12, color: "var(--fg-muted)" }}>…</span>
+                ) : (
+                  <button key={p} onClick={() => setPinPage(p)} style={{
+                    background: p === pinPage ? "var(--accent)" : "var(--surface-2)",
+                    color: p === pinPage ? "white" : "var(--fg)",
+                    border: "1px solid " + (p === pinPage ? "var(--accent)" : "var(--border)"),
+                    borderRadius: 7, padding: "4px 9px", fontSize: 12, fontWeight: p === pinPage ? 700 : 400, cursor: "pointer",
+                  }}>{p}</button>
+                ))
+              }
+              <button disabled={pinPage === totalPages} onClick={() => setPinPage(p => p + 1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === totalPages ? "default" : "pointer", opacity: pinPage === totalPages ? 0.4 : 1 }}>›</button>
+              <button disabled={pinPage === totalPages} onClick={() => setPinPage(totalPages)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === totalPages ? "default" : "pointer", opacity: pinPage === totalPages ? 0.4 : 1 }}>»</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -426,8 +469,10 @@ function App() {
           {/* Banner */}
           <div className="banner">
             <div className="banner-actions">
-              <button className="btn"><Icon name="download" size={13}/>Export PDF</button>
-              <button className="btn"><Icon name="refresh" size={13}/>Sync</button>
+              <button className="btn" onClick={() => window.print()}><Icon name="download" size={13}/>Export PDF</button>
+              <button className="btn" onClick={() => { setIsRefreshing(true); window.DataLoader.load(true).then(d=>{setData(d);setLastSync(new Date());}).catch(e=>setLoadError(e.message)).finally(()=>setIsRefreshing(false)); }}>
+                <Icon name="refresh" size={13}/>{isRefreshing ? "Menyinkron…" : "Sync"}
+              </button>
             </div>
             <div>
               <div className="banner-eyebrow">

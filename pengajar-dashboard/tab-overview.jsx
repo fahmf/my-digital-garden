@@ -270,26 +270,56 @@ function PengajarRanking({ list, kind }) {
   );
 }
 
+const FEED_PAGE = 10;
+
 function LiveFeed({ responses }) {
-  const recent = uM(() => {
-    return [...responses].sort((a,b) => b.timestamp.localeCompare(a.timestamp)).slice(0, 12);
-  }, [responses]);
+  const [page, uS2] = uS(1);
+  const sorted = uM(() =>
+    [...responses].sort((a,b) => b.timestamp.localeCompare(a.timestamp))
+  , [responses]);
+
+  // Reset halaman jika data berubah
+  uE(() => { uS2(1); }, [responses]);
+
+  const total = sorted.length;
+  const items = sorted.slice(0, page * FEED_PAGE);
+  const hasMore = items.length < total;
+
   return (
-    <div className="live-feed">
-      {recent.map((r, i) => {
-        const fresh = (Date.now() - new Date(r.timestamp).getTime()) < 60 * 60 * 1000;
-        return (
-          <div key={i} className={"live-item " + (fresh ? "fresh" : "")}>
-            <div className="when">{relTime(r.timestamp)}</div>
-            <Avatar name={r.pengajar} initials={r.pengajar.split(" ").map(s=>s[0]).slice(0,2).join("")} size="sm"/>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.pengajar}</div>
-              <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{r.kelas} · {r.matkul}</div>
+    <div>
+      <div className="live-feed">
+        {items.map((r, i) => {
+          const fresh = (Date.now() - new Date(r.timestamp).getTime()) < 60 * 60 * 1000;
+          return (
+            <div key={i} className={"live-item " + (fresh ? "fresh" : "")}>
+              <div className="when">{relTime(r.timestamp)}</div>
+              <Avatar name={r.pengajar} initials={r.pengajar.split(" ").map(s=>s[0]).slice(0,2).join("")} size="sm"/>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.pengajar}</div>
+                <div style={{ fontSize: 11, color: "var(--fg-muted)" }}>{r.kelas} · {r.matkul}</div>
+              </div>
+              <span className={"score-pill " + scoreClass(r.avg)}>{r.avg.toFixed(0)}</span>
             </div>
-            <span className={"score-pill " + scoreClass(r.avg)}>{r.avg.toFixed(0)}</span>
+          );
+        })}
+      </div>
+      {(hasMore || page > 1) && (
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0 2px", fontSize: 12, color: "var(--fg-muted)" }}>
+          <span>{items.length} / {total} respons</span>
+          <div style={{ display: "flex", gap: 6 }}>
+            {page > 1 && (
+              <button onClick={() => uS2(p => p - 1)} style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer", color: "var(--fg)" }}>
+                ‹ Kurang
+              </button>
+            )}
+            {hasMore && (
+              <button onClick={() => uS2(p => p + 1)} style={{ background: "var(--accent)", color: "white", border: "none", borderRadius: 7, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                Muat {Math.min(FEED_PAGE, total - items.length)} lagi ›
+              </button>
+            )}
           </div>
-        );
-      })}
+        </div>
+      )}
     </div>
   );
 }

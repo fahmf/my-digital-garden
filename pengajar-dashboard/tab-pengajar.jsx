@@ -36,8 +36,25 @@ const PerPengajarTab = ({ data, filtered }) => {
     return l;
   }, [byPengajar, search, sortBy, genderF]);
 
+  const [compareMode, setCompareMode] = React.useState(false);
+
   const sel = list.find(p => p.name === selected) || byPengajar.find(p => p.name === selected);
   const selResponses = sel ? filtered.filter(r => r.pengajar === sel.name) : [];
+
+  // Skor periode sebelumnya untuk mode perbandingan radar
+  const prevPeriodDimAvgs = React.useMemo(() => {
+    if (!sel || !compareMode) return null;
+    const curIdx = PERIODES.findIndex(p => p.current);
+    if (curIdx <= 0) return null;
+    const prevId = PERIODES[curIdx - 1].id;
+    const prevRs = responses.filter(r => r.pengajar === sel.name && r.periode === prevId);
+    if (!prevRs.length) return null;
+    const avgs = {};
+    DIMENSIONS.forEach(d => {
+      avgs[d.key] = prevRs.reduce((s, r) => s + r.scores[d.col], 0) / prevRs.length;
+    });
+    return avgs;
+  }, [sel, compareMode, PERIODES, DIMENSIONS, responses]);
 
   // Trend across periods for selected pengajar
   const trend = sel ? PERIODES.map(per => {
@@ -171,12 +188,36 @@ const PerPengajarTab = ({ data, filtered }) => {
                 <div className="card-head">
                   <div>
                     <div className="card-title">Skor per Dimensi</div>
-                    <div className="card-sub">Profil 7 dimensi penilaian</div>
+                    <div className="card-sub">Profil {DIMENSIONS.length} dimensi penilaian</div>
                   </div>
+                  {PERIODES.findIndex(p => p.current) > 0 && (
+                    <button onClick={() => setCompareMode(c => !c)} style={{
+                      background: compareMode ? "var(--accent)" : "var(--surface-2)",
+                      color: compareMode ? "white" : "var(--fg)",
+                      border: "1px solid " + (compareMode ? "var(--accent)" : "var(--border)"),
+                      borderRadius: 8, padding: "5px 11px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    }}>
+                      {compareMode ? "✓ Bandingkan" : "Bandingkan periode"}
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: "grid", placeItems: "center" }}>
-                  <RadarChart values={DIMENSIONS.map(d => sel.dimAvgs[d.key])} labels={DIMENSIONS.map(d => d.short)} size={300}/>
+                  <RadarChart
+                    values={DIMENSIONS.map(d => sel.dimAvgs[d.key])}
+                    labels={DIMENSIONS.map(d => d.short)}
+                    size={300}
+                    compare={compareMode && prevPeriodDimAvgs ? DIMENSIONS.map(d => prevPeriodDimAvgs[d.key]) : null}
+                  />
                 </div>
+                {compareMode && (
+                  <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--fg-muted)", justifyContent: "center", marginTop: 6 }}>
+                    <div className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--accent)", borderRadius: 2 }}/>Periode aktif</div>
+                    {prevPeriodDimAvgs
+                      ? <div className="row" style={{ gap: 6 }}><span style={{ width: 10, height: 10, background: "var(--fg-subtle)", borderRadius: 2 }}/>{PERIODES[PERIODES.findIndex(p=>p.current)-1]?.label}</div>
+                      : <div style={{ color: "oklch(0.65 0.13 75)" }}>Tidak ada data periode sebelumnya untuk pengajar ini</div>
+                    }
+                  </div>
+                )}
               </div>
 
               <div className="card">

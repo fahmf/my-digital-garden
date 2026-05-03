@@ -3,7 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2a8c6e">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Raport I'dad">
   <title>Raport Evaluasi Pengajar — I'dad Lughawi STDIIS</title>
+  <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
@@ -1241,5 +1247,19 @@ PESAN PENUTUP:
       #print-header { display: block !important; }
     }
   </style>
+  <script>
+    // Daftarkan Service Worker untuk PWA offline-first
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function() {
+        navigator.serviceWorker.register("/sw.js", { scope: "/" })
+          .then(function(reg) {
+            console.log("[SW] Terdaftar:", reg.scope);
+          })
+          .catch(function(err) {
+            console.warn("[SW] Gagal daftar:", err);
+          });
+      });
+    }
+  </script>
 </body>
 </html>

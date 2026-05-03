@@ -17,6 +17,41 @@ function saveAiCache(key, result) {
   try { sessionStorage.setItem(key, JSON.stringify({ result, ts: Date.now() })); } catch(e) {}
 }
 
+// ─── Sentiment analysis sederhana (tanpa AI, berbasis kamus) ────────────────
+// Mengembalikan "positif" | "negatif" | "netral" untuk satu teks komentar.
+function analyzeSentiment(text) {
+  if (!text || text.trim().length < 3) return "netral";
+  const t = text.toLowerCase();
+
+  const posTerms = [
+    "bagus","baik","sangat baik","luar biasa","mantap","hebat","keren","sempurna",
+    "jelas","mudah dipahami","sistematis","sabar","ramah","peduli","membantu",
+    "membimbing","menarik","seru","antusias","semangat","profesional","disiplin",
+    "tepat waktu","konsisten","bervariasi","inovatif","kreatif","terima kasih",
+    "syukran","jazakallah","alhamdulillah","suka","puas","senang","enjoy",
+  ];
+  const negTerms = [
+    "kurang","tidak","belum","susah","sulit","bingung","monoton","membosankan",
+    "kaku","cepat","terlalu cepat","lambat","terlalu lambat","terlambat","lupa",
+    "sering","kadang","jarang","harap","semoga","lebih baik jika","mohon",
+    "tolong","sebaiknya","seharusnya","masih","perlu diperbaiki","perlu ditingkatkan",
+  ];
+
+  let pos = posTerms.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0);
+  let neg = negTerms.reduce((s, w) => s + (t.includes(w) ? 1 : 0), 0);
+
+  if (pos > neg) return "positif";
+  if (neg > pos) return "negatif";
+  return "netral";
+}
+
+// Hitung distribusi sentimen dari array teks
+function sentimentDistribution(texts) {
+  const dist = { positif: 0, negatif: 0, netral: 0 };
+  texts.forEach(t => dist[analyzeSentiment(t)]++);
+  return dist;
+}
+
 // ─── Theme extraction (satu definisi) ───────────────────
 function extractThemes(positives, sarans) {
   const text = (positives.join(" ") + " " + sarans.join(" ")).toLowerCase();
@@ -418,6 +453,9 @@ CATATAN UNTUK KOORDINATOR:
         </div>
       )}
 
+      {/* ── Sentiment Distribution (tampil di kedua level) ── */}
+      {computed && <SentimentSection allPositif={computed.allPositif} allSaran={computed.allSaran}/>}
+
       {/* DIVISI LEVEL */}
       {level === "divisi" && computed && (
         <>
@@ -633,6 +671,93 @@ function AIRawResult({ raw }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Sentiment Section Component ────────────────────────────────────────────
+function SentimentSection({ allPositif, allSaran }) {
+  const allTexts = [...allPositif, ...allSaran];
+  if (allTexts.length < 3) return null;
+
+  const dist  = sentimentDistribution(allTexts);
+  const total = allTexts.length;
+  const items = [
+    { key: "positif", label: "Positif",  color: "oklch(0.55 0.14 150)", bg: "oklch(0.97 0.04 150)", icon: "trend_up" },
+    { key: "netral",  label: "Netral",   color: "oklch(0.6 0.05 200)",  bg: "oklch(0.97 0.02 200)", icon: "arrow_right" },
+    { key: "negatif", label: "Negatif",  color: "oklch(0.58 0.17 30)",  bg: "oklch(0.97 0.04 25)",  icon: "warning" },
+  ];
+
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="card-head">
+        <div>
+          <div className="card-title">Distribusi Sentimen Komentar</div>
+          <div className="card-sub">Analisis otomatis berbasis kamus · {total} komentar tertulis</div>
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--fg-muted)", display: "flex", alignItems: "center", gap: 6 }}>
+          <Icon name="info" size={13}/>
+          <span>Keyword-based — tidak 100% akurat</span>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10, marginBottom: 14 }}>
+        {items.map(it => {
+          const count = dist[it.key];
+          const pct   = total ? Math.round((count / total) * 100) : 0;
+          return (
+            <div key={it.key} style={{ background: it.bg, border: `1px solid ${it.color}30`, borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                <Icon name={it.icon} size={14} style={{ color: it.color }}/>
+                <span style={{ fontSize: 12.5, fontWeight: 600, color: it.color }}>{it.label}</span>
+              </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 22, fontWeight: 700, color: it.color }}>{count}</div>
+              <div style={{ fontSize: 11.5, color: it.color, opacity: 0.8 }}>{pct}% komentar</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Bar visual */}
+      {total > 0 && (
+        <div>
+          <div style={{ display: "flex", height: 12, borderRadius: 999, overflow: "hidden", gap: 2, marginBottom: 8 }}>
+            {items.map(it => {
+              const w = (dist[it.key] / total) * 100;
+              return w > 0 ? <div key={it.key} style={{ width: w + "%", background: it.color, transition: "width 0.5s", minWidth: 4 }}/> : null;
+            })}
+          </div>
+          <div style={{ display: "flex", gap: 14, fontSize: 11.5, color: "var(--fg-muted)", flexWrap: "wrap" }}>
+            {items.map(it => (
+              <div key={it.key} className="row" style={{ gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: it.color, flexShrink: 0 }}/>
+                {it.label}: {dist[it.key]} ({total ? Math.round((dist[it.key]/total)*100) : 0}%)
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Contoh komentar negatif (untuk aksi) */}
+      {dist.negatif > 0 && (
+        <details style={{ marginTop: 12 }}>
+          <summary style={{ fontSize: 12.5, fontWeight: 600, color: "oklch(0.5 0.15 30)", cursor: "pointer", padding: "6px 0" }}>
+            Lihat {Math.min(dist.negatif, 5)} contoh komentar negatif/perlu perbaikan
+          </summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }}>
+            {allTexts
+              .filter(t => analyzeSentiment(t) === "negatif")
+              .slice(0, 5)
+              .map((t, i) => (
+                <div key={i} className="saran-card" style={{ borderLeft: "3px solid oklch(0.6 0.17 30)" }}>
+                  <div className="body">"{t}"</div>
+                </div>
+              ))
+            }
+          </div>
+        </details>
+      )}
     </div>
   );
 }

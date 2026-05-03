@@ -129,24 +129,52 @@
     return { ...window.MOCK_DATA, _source: "mock" };
   }
 
-  // ── Cache dengan TTL ──
-  const CACHE_KEY = "dashboard_data_cache";
-  const CACHE_TTL = 55 * 1000; // 55 detik
+  // ── Cache berlapis ──
+  // sessionStorage: "hot cache" — 55 detik, hilang saat tab ditutup
+  // localStorage:   "warm cache" — 30 menit, persisten lintas sesi
+
+  const SS_KEY  = "dashboard_data_cache";
+  const LS_KEY  = "dashboard_data_ls";
+  const SS_TTL  = 55 * 1000;           // 55 detik
+  const LS_TTL  = 30 * 60 * 1000;      // 30 menit
 
   function saveCache(data) {
-    try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
-    } catch (e) {}
+    const payload = JSON.stringify({ data, ts: Date.now() });
+    try { sessionStorage.setItem(SS_KEY, payload); } catch (e) {}
+    try { localStorage.setItem(LS_KEY, payload); }  catch (e) {}
   }
 
   function loadCache() {
+    // 1. Coba sessionStorage dulu (paling cepat, TTL 55 detik)
     try {
-      const raw = sessionStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
-      const { data, ts } = JSON.parse(raw);
-      if (Date.now() - ts > CACHE_TTL) return null;
-      return data;
-    } catch (e) { return null; }
+      const raw = sessionStorage.getItem(SS_KEY);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts <= SS_TTL) return { data, source: "session" };
+        sessionStorage.removeItem(SS_KEY);
+      }
+    } catch (e) {}
+
+    // 2. Fallback ke localStorage (TTL 30 menit, persisten)
+    try {
+      const raw = localStorage.getItem(LS_KEY);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts <= LS_TTL) {
+          // Panaskan kembali sessionStorage
+          try { sessionStorage.setItem(SS_KEY, raw); } catch (e) {}
+          return { data, source: "local" };
+        }
+        localStorage.removeItem(LS_KEY);
+      }
+    } catch (e) {}
+
+    return null;
+  }
+
+  function clearAllCache() {
+    try { sessionStorage.removeItem(SS_KEY); } catch (e) {}
+    try { localStorage.removeItem(LS_KEY); }  catch (e) {}
   }
 
   // ── Public API ──
@@ -162,11 +190,11 @@
         return getMockData();
       }
 
-      // Cek cache
+      // Cek cache berlapis (session → local)
       if (!forceRefresh) {
-        const cached = loadCache();
-        if (cached) {
-          return { ...cached, _fromCache: true };
+        const hit = loadCache();
+        if (hit) {
+          return { ...hit.data, _fromCache: true, _cacheSource: hit.source };
         }
       }
 
@@ -178,6 +206,17 @@
         window.MOCK_DATA = data; // agar raport.html juga bisa pakai
         return data;
       } catch (err) {
+        // Coba gunakan stale localStorage cache sebagai fallback darurat
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          if (raw) {
+            const { data } = JSON.parse(raw);
+            if (data) {
+              console.warn("[DataLoader] Fetch gagal, pakai stale localStorage cache:", err.message);
+              return { ...data, _fromCache: true, _cacheSource: "stale", _error: err.message };
+            }
+          }
+        } catch (e) {}
         console.warn("[DataLoader] Gagal fetch live data, fallback ke mock:", err.message);
         return { ...getMockData(), _error: err.message };
       }
@@ -229,6 +268,9 @@
         throw new Error("Gagal memuat PIN dari server: " + err.message);
       }
     },
+
+    // Bersihkan semua cache (session + local)
+    clearCache() { clearAllCache(); },
 
     // Mulai auto-refresh
     // onRefresh(data) — dipanggil setelah data baru diterima
