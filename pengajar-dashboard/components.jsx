@@ -26,6 +26,7 @@ const Icon = ({ name, size = 16, stroke = 1.6 }) => {
     info: <><circle cx="12" cy="12" r="9"/><path d="M12 8v.01M11 12h1v5h1"/></>,
     warning: <><path d="M12 3 2 21h20L12 3Z"/><path d="M12 10v5M12 18v.01"/></>,
     check: <><path d="m4 12 5 5L20 6"/></>,
+    copy: <><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></>,
     link: <><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></>,
     x: <><path d="m6 6 12 12M18 6 6 18"/></>,
     quote: <><path d="M7 7h4v4H7c0 3 1 5 4 5"/><path d="M15 7h4v4h-4c0 3 1 5 4 5"/></>,

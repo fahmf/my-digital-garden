@@ -39,27 +39,32 @@ const ACCENT_PRESETS = {
 };
 
 function PINTab({ data }) {
-  const [search, setSearch] = useState("");
-  const [showPins, setShowPins] = useState(false);
-  const [pinPage, setPinPage] = useState(1);
+  const [search, setSearch]   = useState("");
+  const [page, setPage]       = useState(1);
+  const [copied, setCopied]   = useState(null); // nama pengajar yang baru disalin
 
-  // PIN dihitung lokal — urutan alfabet PENGAJAR (sorted by name)
-  // Pengajar ke-1 → "0001", ke-2 → "0002", dst.
-  const getPin = (name) => {
-    const idx = data.PENGAJAR.findIndex(p => p.name === name);
-    return idx >= 0 ? String(10001 + idx).slice(1) : "——";
-  };
-
-  const PIN_PAGE = 25;
+  const PAGE_SIZE   = 25;
   const activePeriode = data.PERIODES.find(p => p.current);
+
+  // Base URL Raport.html — sama folder dengan Dashboard
+  const raportBase = window.location.origin +
+    window.location.pathname.replace(/[^/]*$/, "") + "Raport.html";
+  const getLink = (name) => raportBase + "?name=" + encodeURIComponent(name);
+
+  const copyLink = (name) => {
+    navigator.clipboard.writeText(getLink(name)).then(() => {
+      setCopied(name);
+      setTimeout(() => setCopied(null), 2000);
+    });
+  };
 
   const list = data.PENGAJAR.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
-  useEffect(() => { setPinPage(1); }, [search]);
+  useEffect(() => { setPage(1); }, [search]);
 
-  const totalPages = Math.ceil(list.length / PIN_PAGE);
-  const pagedList  = list.slice((pinPage - 1) * PIN_PAGE, pinPage * PIN_PAGE);
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  const pagedList  = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
     <div>
@@ -68,7 +73,7 @@ function PINTab({ data }) {
         <div>
           <div style={{ fontWeight: 600, fontSize: 13.5, color: "oklch(0.45 0.13 75)" }}>Halaman Rahasia — Hanya untuk Koordinator Divisi</div>
           <div style={{ fontSize: 12.5, color: "oklch(0.5 0.12 75)", marginTop: 3 }}>
-            Bagikan PIN hanya kepada pengajar masing-masing secara pribadi (WhatsApp/tatap muka). PIN bersifat tetap selama urutan nama tidak berubah.
+            Kirimkan link raport ke masing-masing pengajar secara pribadi (WhatsApp/tatap muka). Link langsung membuka raport miliknya tanpa perlu login.
           </div>
         </div>
       </div>
@@ -85,10 +90,10 @@ function PINTab({ data }) {
         </div>
         <div className="pin-steps-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
           {[
-            { n: "1", title: "Salin URL Raport", desc: "Salin URL halaman Raport.html dan kirim ke semua pengajar" },
-            { n: "2", title: "Kirim PIN pribadi", desc: "Kirim PIN 4 digit ke masing-masing pengajar secara pribadi via WA" },
-            { n: "3", title: "Pengajar login", desc: "Pengajar pilih nama mereka di dropdown lalu masukkan PIN" },
-            { n: "4", title: "Hanya data sendiri", desc: "Sistem hanya menampilkan evaluasi milik pengajar tersebut" },
+            { n: "1", title: "Buka tab ini",       desc: "Link unik per pengajar sudah otomatis digenerate di bawah" },
+            { n: "2", title: "Salin link",          desc: "Klik tombol \"Salin\" di baris pengajar yang ingin dibagikan" },
+            { n: "3", title: "Kirim via WA",        desc: "Kirimkan link langsung ke pengajar bersangkutan secara pribadi" },
+            { n: "4", title: "Pengajar buka link",  desc: "Link langsung membuka raport miliknya — tidak perlu pilih nama atau PIN" },
           ].map(s => (
             <div key={s.n} style={{ background: "var(--surface-2)", borderRadius: 12, padding: "14px 16px" }}>
               <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--accent)", color: "white", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{s.n}</div>
@@ -102,45 +107,37 @@ function PINTab({ data }) {
       <div className="card">
         <div className="card-head">
           <div>
-            <div className="card-title">Daftar PIN Pengajar — {activePeriode?.label}</div>
-            <div className="card-sub">{data.PENGAJAR.length} pengajar · PIN = urutan alfabet (0001, 0002, …)</div>
+            <div className="card-title">Link Raport per Pengajar — {activePeriode?.label}</div>
+            <div className="card-sub">{data.PENGAJAR.length} pengajar · klik "Salin" lalu kirim via WA</div>
           </div>
-          <div className="row" style={{ gap: 8 }}>
-            <div className="search-box" style={{ width: 220 }}>
-              <Icon name="search" size={13}/>
-              <input placeholder="Cari nama…" value={search} onChange={e => setSearch(e.target.value)}/>
-            </div>
-            <button onClick={() => setShowPins(!showPins)} style={{
-              background: showPins ? "var(--bad)" : "var(--surface-2)", border: "1px solid var(--border)",
-              color: showPins ? "white" : "var(--fg)", padding: "7px 12px", borderRadius: 10, fontSize: 12.5, fontWeight: 600
-            }}>
-              <Icon name={showPins ? "x" : "eye"} size={13}/> {showPins ? "Sembunyikan PIN" : "Tampilkan PIN"}
-            </button>
+          <div className="search-box" style={{ width: 220 }}>
+            <Icon name="search" size={13}/>
+            <input placeholder="Cari nama…" value={search} onChange={e => setSearch(e.target.value)}/>
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ minWidth: 560 }}>
+          <table className="table" style={{ minWidth: 580 }}>
             <thead>
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>Nama Pengajar</th>
                 <th style={{ width: 90 }}>Gender</th>
-                <th style={{ width: 110 }}>PIN Raport</th>
+                <th>Link Raport</th>
                 <th style={{ width: 80 }}>Respons</th>
                 <th style={{ width: 90 }}>Avg Skor</th>
               </tr>
             </thead>
             <tbody>
               {pagedList.map((p) => {
-                const pin = getPin(p.name);
-                const rs = data.responses.filter(r => r.pengajar === p.name && r.periode === activePeriode?.id);
-                const avg = rs.length ? rs.reduce((s,r)=>s+r.avg,0)/rs.length : null;
+                const rs  = data.responses.filter(r => r.pengajar === p.name && r.periode === activePeriode?.id);
+                const avg = rs.length ? rs.reduce((s, r) => s + r.avg, 0) / rs.length : null;
+                const isCopied = copied === p.name;
                 return (
                   <tr key={p.name}>
-                    <td className="num muted">{data.PENGAJAR.indexOf(p)+1}</td>
+                    <td className="num muted">{data.PENGAJAR.indexOf(p) + 1}</td>
                     <td>
                       <div className="row" style={{ gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 999, background: "linear-gradient(135deg, oklch(0.7 0.12 165), oklch(0.5 0.13 165))", color: "white", display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 999, background: "linear-gradient(135deg, oklch(0.7 0.12 165), oklch(0.5 0.13 165))", color: "white", display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
                           {p.initials}
                         </div>
                         <span style={{ fontWeight: 500 }}>{p.name}</span>
@@ -148,16 +145,24 @@ function PINTab({ data }) {
                     </td>
                     <td><span className="chip">{p.gender === "L" ? "Putra" : "Putri"}</span></td>
                     <td>
-                      <span style={{
-                        fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700,
-                        letterSpacing: showPins ? "4px" : "2px",
-                        color: showPins ? "var(--accent-strong)" : "var(--fg-subtle)",
-                        background: showPins ? "var(--accent-soft)" : "var(--surface-2)",
-                        padding: "3px 10px", borderRadius: 8, display: "inline-block",
-                        filter: showPins ? "none" : "blur(5px)",
-                        userSelect: showPins ? "text" : "none",
-                        transition: "filter 0.3s",
-                      }}>{pin}</span>
+                      <div className="row" style={{ gap: 8 }}>
+                        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11.5, color: "var(--fg-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>
+                          {getLink(p.name)}
+                        </span>
+                        <button
+                          onClick={() => copyLink(p.name)}
+                          style={{
+                            flexShrink: 0,
+                            background: isCopied ? "oklch(0.45 0.15 150)" : "var(--accent)",
+                            color: "white", border: "none", padding: "4px 10px", borderRadius: 7,
+                            fontSize: 11.5, fontWeight: 600, cursor: "pointer", transition: "background 0.2s",
+                            display: "inline-flex", alignItems: "center", gap: 4,
+                          }}
+                        >
+                          <Icon name={isCopied ? "check" : "copy"} size={11}/>
+                          {isCopied ? "Tersalin!" : "Salin"}
+                        </button>
+                      </div>
                     </td>
                     <td className="num">{rs.length || "—"}</td>
                     <td className="num">
@@ -172,35 +177,35 @@ function PINTab({ data }) {
         {totalPages > 1 && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12.5 }}>
             <span style={{ color: "var(--fg-muted)" }}>
-              Menampilkan {(pinPage - 1) * PIN_PAGE + 1}–{Math.min(pinPage * PIN_PAGE, list.length)} dari {list.length} pengajar
+              Menampilkan {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, list.length)} dari {list.length} pengajar
             </span>
             <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <button disabled={pinPage === 1} onClick={() => setPinPage(1)}
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === 1 ? "default" : "pointer", opacity: pinPage === 1 ? 0.4 : 1 }}>«</button>
-              <button disabled={pinPage === 1} onClick={() => setPinPage(p => p - 1)}
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === 1 ? "default" : "pointer", opacity: pinPage === 1 ? 0.4 : 1 }}>‹</button>
+              <button disabled={page === 1} onClick={() => setPage(1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? 0.4 : 1 }}>«</button>
+              <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: page === 1 ? "default" : "pointer", opacity: page === 1 ? 0.4 : 1 }}>‹</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter(p => p === 1 || p === totalPages || Math.abs(p - pinPage) <= 1)
+                .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
                 .reduce((acc, p, idx, arr) => {
-                  if (idx > 0 && p - arr[idx-1] > 1) acc.push("…");
+                  if (idx > 0 && p - arr[idx - 1] > 1) acc.push("…");
                   acc.push(p);
                   return acc;
                 }, [])
                 .map((p, i) => p === "…" ? (
-                  <span key={"e"+i} style={{ padding: "4px 6px", fontSize: 12, color: "var(--fg-muted)" }}>…</span>
+                  <span key={"e" + i} style={{ padding: "4px 6px", fontSize: 12, color: "var(--fg-muted)" }}>…</span>
                 ) : (
-                  <button key={p} onClick={() => setPinPage(p)} style={{
-                    background: p === pinPage ? "var(--accent)" : "var(--surface-2)",
-                    color: p === pinPage ? "white" : "var(--fg)",
-                    border: "1px solid " + (p === pinPage ? "var(--accent)" : "var(--border)"),
-                    borderRadius: 7, padding: "4px 9px", fontSize: 12, fontWeight: p === pinPage ? 700 : 400, cursor: "pointer",
+                  <button key={p} onClick={() => setPage(p)} style={{
+                    background: p === page ? "var(--accent)" : "var(--surface-2)",
+                    color: p === page ? "white" : "var(--fg)",
+                    border: "1px solid " + (p === page ? "var(--accent)" : "var(--border)"),
+                    borderRadius: 7, padding: "4px 9px", fontSize: 12, fontWeight: p === page ? 700 : 400, cursor: "pointer",
                   }}>{p}</button>
                 ))
               }
-              <button disabled={pinPage === totalPages} onClick={() => setPinPage(p => p + 1)}
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === totalPages ? "default" : "pointer", opacity: pinPage === totalPages ? 0.4 : 1 }}>›</button>
-              <button disabled={pinPage === totalPages} onClick={() => setPinPage(totalPages)}
-                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: pinPage === totalPages ? "default" : "pointer", opacity: pinPage === totalPages ? 0.4 : 1 }}>»</button>
+              <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? 0.4 : 1 }}>›</button>
+              <button disabled={page === totalPages} onClick={() => setPage(totalPages)}
+                style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 7, padding: "4px 9px", fontSize: 12, cursor: page === totalPages ? "default" : "pointer", opacity: page === totalPages ? 0.4 : 1 }}>»</button>
             </div>
           </div>
         )}

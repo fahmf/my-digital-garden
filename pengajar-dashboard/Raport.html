@@ -1213,14 +1213,14 @@ PESAN PENUTUP:
       const [loadError, setLoadError] = useState(null);
       const [loggedIn, setLoggedIn] = useState(null);
 
+      // ?name= dari link distribusi — simpan agar logout bisa redirect ke sini
+      const urlName = new URLSearchParams(window.location.search).get("name");
+
       const loadData = () => {
         setLoadError(null);
         setData(null);
         window.DataLoader.load().then(d => {
           setData(d);
-          // ?name= → auto-login (admin preview)
-          const params = new URLSearchParams(window.location.search);
-          const urlName = params.get("name");
           if (urlName && d.PENGAJAR.some(p => p.name === urlName)) {
             setLoggedIn(urlName);
           }
@@ -1231,13 +1231,19 @@ PESAN PENUTUP:
 
       useEffect(() => { loadData(); }, []);
 
+      // Logout: jika masuk via link langsung reload halaman (auto-login lagi),
+      // jika masuk manual kembali ke form login
+      const handleLogout = () => {
+        if (urlName) { window.location.reload(); } else { setLoggedIn(null); }
+      };
+
       if (!data && !loadError) return <LoadingScreen />;
       if (loadError) return <LoadingScreen error={loadError} onRetry={loadData} />;
 
       if (!loggedIn) {
         return <LoginScreen data={data} onLogin={(name) => setLoggedIn(name)} />;
       }
-      return <RaportScreen data={data} name={loggedIn} onLogout={() => setLoggedIn(null)} />;
+      return <RaportScreen data={data} name={loggedIn} onLogout={handleLogout} />;
     }
 
     ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
