@@ -41,22 +41,42 @@ const ACCENT_PRESETS = {
 function PINTab({ data }) {
   const [search, setSearch] = useState("");
   const [showPins, setShowPins] = useState(false);
-  const [pins, setPins] = useState(null);       // { namaLengkap -> "1234" }
+  const [pinsData, setPinsData] = useState(null); // { pins: {name->pin}, tokens: {name->token} }
   const [pinsLoading, setPinsLoading] = useState(false);
   const [pinsError, setPinsError] = useState(null);
+  const [copied, setCopied] = useState(null); // nama pengajar yang linknya baru disalin
 
-  useEffect(() => {
+  const loadPinsData = () => {
+    setPinsError(null);
     setPinsLoading(true);
     window.DataLoader.loadPins()
-      .then(p => { setPins(p); setPinsError(null); })
+      .then(p => { setPinsData(p); })
       .catch(e => setPinsError(e.message))
       .finally(() => setPinsLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadPinsData(); }, []);
 
   const getPin = (name) => {
     if (pinsLoading) return "····";
-    if (!pins) return "——";
-    return pins[name] || "——";
+    if (!pinsData) return "——";
+    return pinsData.pins?.[name] || "——";
+  };
+
+  const getToken = (name) => pinsData?.tokens?.[name] || null;
+
+  const copyLink = (name) => {
+    const token = getToken(name);
+    if (!token) return;
+    const base = window.location.href.replace(/[^/]*$/, "");
+    const url = base + "Raport.html?token=" + token;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(name);
+      setTimeout(() => setCopied(c => c === name ? null : c), 2500);
+    }).catch(() => {
+      // Fallback jika clipboard tidak tersedia
+      prompt("Salin link ini:", base + "Raport.html?token=" + token);
+    });
   };
 
   const PIN_PAGE = 25;
@@ -89,8 +109,8 @@ function PINTab({ data }) {
       {pinsError && (
         <div style={{ background: "oklch(0.97 0.03 25)", border: "1px solid oklch(0.88 0.07 25)", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "oklch(0.5 0.15 25)", display: "flex", gap: 10, alignItems: "center" }}>
           <Icon name="warning" size={15} style={{ flexShrink: 0 }}/>
-          <span>Gagal memuat PIN dari server: {pinsError}. PIN tidak ditampilkan.</span>
-          <button onClick={() => { setPinsError(null); setPinsLoading(true); window.DataLoader.loadPins().then(p=>{setPins(p);}).catch(e=>setPinsError(e.message)).finally(()=>setPinsLoading(false)); }}
+          <span>Gagal memuat dari server: {pinsError}. Pastikan Apps Script sudah di-update dan di-deploy ulang.</span>
+          <button onClick={loadPinsData}
             style={{ marginLeft: "auto", background: "oklch(0.5 0.16 25)", color: "white", border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
             Coba Lagi
           </button>
@@ -109,10 +129,10 @@ function PINTab({ data }) {
         </div>
         <div className="pin-steps-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
           {[
-            { n: "1", title: "Copy link", desc: "Salin URL halaman Raport.html dan kirim ke pengajar" },
-            { n: "2", title: "Kirim PIN", desc: "Kirim PIN 4 digit ke masing-masing pengajar secara pribadi via WA" },
-            { n: "3", title: "Login sendiri", desc: "Pengajar pilih nama mereka dan masukkan PIN" },
-            { n: "4", title: "Hanya data sendiri", desc: "Mereka hanya bisa melihat evaluasi milik mereka sendiri" },
+            { n: "1", title: "Klik 'Salin Link'", desc: "Klik tombol Salin Link di baris pengajar untuk menyalin URL unik mereka" },
+            { n: "2", title: "Kirim via WA", desc: "Tempelkan link ke chat WhatsApp atau media lain — kirim ke pengajar bersangkutan saja" },
+            { n: "3", title: "Buka link", desc: "Pengajar klik link → langsung masuk tanpa perlu pilih nama atau ketik PIN" },
+            { n: "4", title: "Hanya data sendiri", desc: "Setiap link unik — hanya menampilkan data evaluasi pemilik link tersebut" },
           ].map(s => (
             <div key={s.n} style={{ background: "var(--surface-2)", borderRadius: 12, padding: "14px 16px" }}>
               <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--accent)", color: "white", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{s.n}</div>
@@ -152,7 +172,7 @@ function PINTab({ data }) {
                 <th style={{ width: 100 }}>PIN Raport</th>
                 <th style={{ width: 80 }}>Respons</th>
                 <th style={{ width: 80 }}>Avg Skor</th>
-                <th style={{ width: 140 }}>Akses Raport</th>
+                <th style={{ width: 130 }}>Link Unik</th>
               </tr>
             </thead>
             <tbody>
@@ -189,14 +209,22 @@ function PINTab({ data }) {
                       {avg != null ? <span className={"score-pill " + (avg>=95?"s100":avg>=80?"s80":avg>=65?"s60":"s40")}>{avg.toFixed(1)}</span> : <span className="muted">—</span>}
                     </td>
                     <td>
-                      <a href={raportUrl(p.name)} target="_blank" style={{
-                        display: "inline-flex", gap: 5, alignItems: "center",
-                        background: "var(--accent-soft)", color: "var(--accent-strong)",
-                        border: "none", padding: "5px 10px", borderRadius: 8,
-                        fontSize: 12, fontWeight: 600, textDecoration: "none"
-                      }}>
-                        <Icon name="eye" size={12}/> Preview
-                      </a>
+                      {getToken(p.name) ? (
+                        <button onClick={() => copyLink(p.name)} style={{
+                          display: "inline-flex", gap: 5, alignItems: "center",
+                          background: copied === p.name ? "oklch(0.55 0.14 150)" : "var(--accent-soft)",
+                          color: copied === p.name ? "white" : "var(--accent-strong)",
+                          border: "none", padding: "5px 10px", borderRadius: 8,
+                          fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
+                        }}>
+                          <Icon name={copied === p.name ? "check" : "link"} size={12}/>
+                          {copied === p.name ? "Tersalin!" : "Salin Link"}
+                        </button>
+                      ) : (
+                        <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>
+                          {pinsLoading ? "memuat…" : "—"}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

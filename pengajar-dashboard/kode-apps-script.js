@@ -76,6 +76,8 @@ function doGet(e) {
       result = getPeriodes();
     } else if (action === "getPins") {
       result = getAllPins();
+    } else if (action === "getTeacherByToken") {
+      result = getTeacherByToken(e.parameter.token || "");
     } else if (action === "health") {
       result = { ok: true, ts: new Date().toISOString() };
     } else if (action === "verifyPin") {
@@ -422,50 +424,90 @@ function parseRow(row, headers, dimensions) {
   };
 }
 
-// ─── Manajemen PIN ───────────────────────────────────────
+// ─── Manajemen PIN & Token ───────────────────────────────
 function getOrCreatePinSheet() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = ss.getSheetByName(CONFIG.SHEET_PIN);
   if (!sheet) {
     sheet = ss.insertSheet(CONFIG.SHEET_PIN);
-    sheet.getRange("A1:C1").setValues([["Nama Pengajar", "PIN", "Dibuat"]]);
-    sheet.getRange("A1:C1").setFontWeight("bold");
-    // Generate PIN untuk semua pengajar yang ada
+    sheet.getRange("A1:D1").setValues([["Nama Pengajar", "PIN", "Dibuat", "Token"]]);
+    sheet.getRange("A1:D1").setFontWeight("bold");
     generateAllPins(sheet);
+  } else {
+    // Pastikan kolom Token ada (untuk sheet lama yang belum punya kolom D)
+    var headerRow = sheet.getRange(1, 1, 1, Math.max(4, sheet.getLastColumn())).getValues()[0];
+    if (!headerRow[3] || headerRow[3].toString().trim() === "") {
+      sheet.getRange(1, 4).setValue("Token");
+    }
   }
   return sheet;
 }
 
 function generateRandomPin() {
-  // 4-digit random PIN: 1000–9999
   return String(Math.floor(1000 + Math.random() * 9000));
+}
+
+function generateToken() {
+  var chars = "abcdefghjkmnpqrstuvwxyz23456789"; // tanpa huruf ambigu (l,o,i,1,0)
+  var token = "";
+  for (var i = 0; i < 10; i++) {
+    token += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return token;
 }
 
 function getAllPins() {
   const sheet = getOrCreatePinSheet();
+  // Pastikan semua pengajar punya entri dan token
+  generateAllPins(sheet);
   const rows = sheet.getDataRange().getValues().slice(1);
   const pins = {};
+  const tokens = {};
   rows.forEach(function(row) {
-    if (row[0] && row[1]) pins[row[0].toString().trim()] = row[1].toString().trim();
+    const name = row[0] ? row[0].toString().trim() : "";
+    if (!name) return;
+    if (row[1]) pins[name] = row[1].toString().trim();
+    if (row[3]) tokens[name] = row[3].toString().trim();
   });
-  return { pins: pins };
+  return { pins: pins, tokens: tokens };
+}
+
+function getTeacherByToken(token) {
+  if (!token) return { ok: false, error: "Token kosong." };
+  const sheet = getOrCreatePinSheet();
+  const rows = sheet.getDataRange().getValues().slice(1);
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (row[3] && row[3].toString().trim() === token.toString().trim()) {
+      return { ok: true, name: row[0].toString().trim() };
+    }
+  }
+  return { ok: false, error: "Link tidak valid atau sudah kedaluwarsa. Minta link baru ke koordinator." };
 }
 
 function generateAllPins(sheet) {
   const data = getData();
   const names = [...new Set(data.responses.map(r => r.pengajar))].filter(Boolean).sort();
-  const existing = sheet.getDataRange().getValues().slice(1).map(r => r[0]);
+  const rows = sheet.getDataRange().getValues().slice(1);
+  const existingNames = rows.map(function(r) { return r[0] ? r[0].toString().trim() : ""; });
+
+  // Tambahkan token ke baris yang belum punya (sheet lama)
+  rows.forEach(function(row, i) {
+    if (row[0] && (!row[3] || row[3].toString().trim() === "")) {
+      sheet.getRange(i + 2, 4).setValue(generateToken());
+    }
+  });
+
+  // Tambah pengajar baru yang belum ada di sheet
   const newRows = [];
   names.forEach(function(name) {
-    if (!existing.includes(name)) {
-      const pin = generateRandomPin();
-      newRows.push([name, pin, new Date().toLocaleDateString("id-ID")]);
+    if (!existingNames.includes(name)) {
+      newRows.push([name, generateRandomPin(), new Date().toLocaleDateString("id-ID"), generateToken()]);
     }
   });
   if (newRows.length > 0) {
     const startRow = sheet.getLastRow() + 1;
-    sheet.getRange(startRow, 1, newRows.length, 3).setValues(newRows);
-    // Sembunyikan kolom PIN dari view biasa
+    sheet.getRange(startRow, 1, newRows.length, 4).setValues(newRows);
     sheet.hideColumns(2);
   }
 }

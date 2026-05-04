@@ -250,26 +250,39 @@
       }
     },
 
-    // Muat semua PIN dari server (untuk halaman admin Distribusi Raport)
+    // Muat semua PIN + token dari server (untuk halaman admin Distribusi Raport)
     async loadPins() {
       const cfg = window.DASHBOARD_CONFIG || {};
       const url = cfg.APPS_SCRIPT_URL;
 
       if (!url || cfg.MODE === "demo") {
-        // Demo mode: kembalikan PIN sequential (bukan acak, hanya untuk demo)
-        const result = {};
+        const pins = {};
         (window.MOCK_DATA?.PENGAJAR || []).forEach((p, i) => {
-          result[p.name] = String(10001 + i).slice(1);
+          pins[p.name] = String(10001 + i).slice(1);
         });
-        return result;
+        return { pins, tokens: {} };
       }
 
       try {
         const raw = await fetchViaJsonp(url, "getPins");
         if (raw.error) throw new Error(raw.error);
-        return raw.pins || {};
+        return { pins: raw.pins || {}, tokens: raw.tokens || {} };
       } catch (err) {
         throw new Error("Gagal memuat PIN dari server: " + err.message);
+      }
+    },
+
+    // Verifikasi token dari URL ?token=xxx → { ok, name } atau { ok: false, error }
+    async verifyToken(token) {
+      if (!token) return { ok: false, error: "Tidak ada token." };
+      const cfg = window.DASHBOARD_CONFIG || {};
+      const url = cfg.APPS_SCRIPT_URL;
+      if (!url || cfg.MODE === "demo") return { ok: false, error: "Demo mode." };
+      try {
+        const raw = await fetchViaJsonp(url, "getTeacherByToken", "token=" + encodeURIComponent(token));
+        return raw;
+      } catch (err) {
+        return { ok: false, error: err.message };
       }
     },
 

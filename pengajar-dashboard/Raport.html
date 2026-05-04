@@ -354,7 +354,13 @@
     }
 
     // ---- Loading Screen ----
-    function LoadingScreen({ error, onRetry }) {
+    function LoadingScreen({ error, onRetry, tokenChecking }) {
+      const msg = tokenChecking
+        ? "Memverifikasi link raport…"
+        : "Memuat data…";
+      const sub = tokenChecking
+        ? "Mohon tunggu sebentar"
+        : "Mengambil data dari Google Sheets";
       return (
         <div className="login-wrap">
           <div className="login-card" style={{ textAlign: "center" }}>
@@ -367,8 +373,8 @@
               </>
             ) : (
               <>
-                <h2 className="login-title" style={{ fontSize: 18 }}>Memuat data…</h2>
-                <p style={{ color: "var(--fg-muted)", fontSize: 13, margin: "8px 0 0" }}>Mengambil data dari Google Sheets</p>
+                <h2 className="login-title" style={{ fontSize: 18 }}>{msg}</h2>
+                <p style={{ color: "var(--fg-muted)", fontSize: 13, margin: "8px 0 0" }}>{sub}</p>
                 <div style={{ marginTop: 24, display: "flex", justifyContent: "center" }}>
                   <div style={{
                     width: 32, height: 32, border: "3px solid var(--border)",
@@ -1212,15 +1218,29 @@ PESAN PENUTUP:
       const [data, setData] = useState(null);
       const [loadError, setLoadError] = useState(null);
       const [loggedIn, setLoggedIn] = useState(null);
+      const [tokenChecking, setTokenChecking] = useState(false);
 
       const loadData = () => {
         setLoadError(null);
         setData(null);
         window.DataLoader.load().then(d => {
           setData(d);
-          // If URL has ?name=X, auto-login (admin direct link)
-          const p = new URLSearchParams(window.location.search);
-          const urlName = p.get("name");
+          const params = new URLSearchParams(window.location.search);
+
+          // ?token= → verifikasi ke server, auto-login tanpa PIN
+          const token = params.get("token");
+          if (token) {
+            setTokenChecking(true);
+            window.DataLoader.verifyToken(token).then(res => {
+              setTokenChecking(false);
+              if (res.ok && res.name) setLoggedIn(res.name);
+              // Jika token salah, tampilkan layar login biasa
+            }).catch(() => setTokenChecking(false));
+            return;
+          }
+
+          // ?name= → auto-login langsung (legacy / admin preview)
+          const urlName = params.get("name");
           if (urlName && d.PENGAJAR.some(p => p.name === urlName)) {
             setLoggedIn(urlName);
           }
@@ -1233,6 +1253,7 @@ PESAN PENUTUP:
 
       if (!data && !loadError) return <LoadingScreen />;
       if (loadError) return <LoadingScreen error={loadError} onRetry={loadData} />;
+      if (tokenChecking) return <LoadingScreen tokenChecking />;
 
       if (!loggedIn) {
         return <LoginScreen data={data} onLogin={(name) => setLoggedIn(name)} />;
