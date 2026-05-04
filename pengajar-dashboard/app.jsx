@@ -41,81 +41,37 @@ const ACCENT_PRESETS = {
 function PINTab({ data }) {
   const [search, setSearch] = useState("");
   const [showPins, setShowPins] = useState(false);
-  const [pinsData, setPinsData] = useState(null); // { pins: {name->pin}, tokens: {name->token} }
-  const [pinsLoading, setPinsLoading] = useState(false);
-  const [pinsError, setPinsError] = useState(null);
-  const [copied, setCopied] = useState(null); // nama pengajar yang linknya baru disalin
+  const [pinPage, setPinPage] = useState(1);
 
-  const loadPinsData = () => {
-    setPinsError(null);
-    setPinsLoading(true);
-    window.DataLoader.loadPins()
-      .then(p => { setPinsData(p); })
-      .catch(e => setPinsError(e.message))
-      .finally(() => setPinsLoading(false));
-  };
-
-  useEffect(() => { loadPinsData(); }, []);
-
+  // PIN dihitung lokal — urutan alfabet PENGAJAR (sorted by name)
+  // Pengajar ke-1 → "0001", ke-2 → "0002", dst.
   const getPin = (name) => {
-    if (pinsLoading) return "····";
-    if (!pinsData) return "——";
-    return pinsData.pins?.[name] || "——";
-  };
-
-  const getToken = (name) => pinsData?.tokens?.[name] || null;
-
-  const copyLink = (name) => {
-    const token = getToken(name);
-    if (!token) return;
-    const base = window.location.href.replace(/[^/]*$/, "");
-    const url = base + "Raport.html?token=" + token;
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(name);
-      setTimeout(() => setCopied(c => c === name ? null : c), 2500);
-    }).catch(() => {
-      // Fallback jika clipboard tidak tersedia
-      prompt("Salin link ini:", base + "Raport.html?token=" + token);
-    });
+    const idx = data.PENGAJAR.findIndex(p => p.name === name);
+    return idx >= 0 ? String(10001 + idx).slice(1) : "——";
   };
 
   const PIN_PAGE = 25;
-  const [pinPage, setPinPage] = useState(1);
+  const activePeriode = data.PERIODES.find(p => p.current);
 
   const list = data.PENGAJAR.filter(p =>
     !search || p.name.toLowerCase().includes(search.toLowerCase())
   );
-  // Reset halaman saat search berubah
   useEffect(() => { setPinPage(1); }, [search]);
 
   const totalPages = Math.ceil(list.length / PIN_PAGE);
   const pagedList  = list.slice((pinPage - 1) * PIN_PAGE, pinPage * PIN_PAGE);
-  const raportUrl  = (name) => `Raport.html?name=${encodeURIComponent(name)}`;
-  const activePeriode = data.PERIODES.find(p => p.current);
 
   return (
     <div>
-      {/* Warning banner */}
       <div style={{ background: "oklch(0.97 0.04 75)", border: "1.5px solid oklch(0.88 0.08 75)", borderRadius: 14, padding: "14px 18px", marginBottom: 18, display: "flex", gap: 12 }}>
         <Icon name="warning" size={18} style={{ flexShrink: 0, color: "oklch(0.55 0.15 75)", marginTop: 1 }}/>
         <div>
           <div style={{ fontWeight: 600, fontSize: 13.5, color: "oklch(0.45 0.13 75)" }}>Halaman Rahasia — Hanya untuk Koordinator Divisi</div>
           <div style={{ fontSize: 12.5, color: "oklch(0.5 0.12 75)", marginTop: 3 }}>
-            Daftar PIN di bawah bersifat rahasia. Bagikan PIN hanya kepada pengajar masing-masing secara pribadi (WhatsApp/tatap muka). Jangan screenshot atau sebarkan tabel ini.
+            Bagikan PIN hanya kepada pengajar masing-masing secara pribadi (WhatsApp/tatap muka). PIN bersifat tetap selama urutan nama tidak berubah.
           </div>
         </div>
       </div>
-
-      {pinsError && (
-        <div style={{ background: "oklch(0.97 0.03 25)", border: "1px solid oklch(0.88 0.07 25)", borderRadius: 12, padding: "12px 16px", marginBottom: 14, fontSize: 13, color: "oklch(0.5 0.15 25)", display: "flex", gap: 10, alignItems: "center" }}>
-          <Icon name="warning" size={15} style={{ flexShrink: 0 }}/>
-          <span>Gagal memuat dari server: {pinsError}. Pastikan Apps Script sudah di-update dan di-deploy ulang.</span>
-          <button onClick={loadPinsData}
-            style={{ marginLeft: "auto", background: "oklch(0.5 0.16 25)", color: "white", border: "none", padding: "5px 10px", borderRadius: 7, fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>
-            Coba Lagi
-          </button>
-        </div>
-      )}
 
       <div className="card" style={{ marginBottom: 14 }}>
         <div className="card-head">
@@ -129,10 +85,10 @@ function PINTab({ data }) {
         </div>
         <div className="pin-steps-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12 }}>
           {[
-            { n: "1", title: "Klik 'Salin Link'", desc: "Klik tombol Salin Link di baris pengajar untuk menyalin URL unik mereka" },
-            { n: "2", title: "Kirim via WA", desc: "Tempelkan link ke chat WhatsApp atau media lain — kirim ke pengajar bersangkutan saja" },
-            { n: "3", title: "Buka link", desc: "Pengajar klik link → langsung masuk tanpa perlu pilih nama atau ketik PIN" },
-            { n: "4", title: "Hanya data sendiri", desc: "Setiap link unik — hanya menampilkan data evaluasi pemilik link tersebut" },
+            { n: "1", title: "Salin URL Raport", desc: "Salin URL halaman Raport.html dan kirim ke semua pengajar" },
+            { n: "2", title: "Kirim PIN pribadi", desc: "Kirim PIN 4 digit ke masing-masing pengajar secara pribadi via WA" },
+            { n: "3", title: "Pengajar login", desc: "Pengajar pilih nama mereka di dropdown lalu masukkan PIN" },
+            { n: "4", title: "Hanya data sendiri", desc: "Sistem hanya menampilkan evaluasi milik pengajar tersebut" },
           ].map(s => (
             <div key={s.n} style={{ background: "var(--surface-2)", borderRadius: 12, padding: "14px 16px" }}>
               <div style={{ width: 28, height: 28, borderRadius: 8, background: "var(--accent)", color: "white", display: "grid", placeItems: "center", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{s.n}</div>
@@ -146,8 +102,8 @@ function PINTab({ data }) {
       <div className="card">
         <div className="card-head">
           <div>
-            <div className="card-title">Daftar PIN Pengajar — {activePeriode.label}</div>
-            <div className="card-sub">{data.PENGAJAR.length} pengajar · PIN berlaku selama sistem aktif</div>
+            <div className="card-title">Daftar PIN Pengajar — {activePeriode?.label}</div>
+            <div className="card-sub">{data.PENGAJAR.length} pengajar · PIN = urutan alfabet (0001, 0002, …)</div>
           </div>
           <div className="row" style={{ gap: 8 }}>
             <div className="search-box" style={{ width: 220 }}>
@@ -163,29 +119,28 @@ function PINTab({ data }) {
           </div>
         </div>
         <div style={{ overflowX: "auto" }}>
-          <table className="table" style={{ minWidth: 600 }}>
+          <table className="table" style={{ minWidth: 560 }}>
             <thead>
               <tr>
                 <th style={{ width: 40 }}>#</th>
                 <th>Nama Pengajar</th>
                 <th style={{ width: 90 }}>Gender</th>
-                <th style={{ width: 100 }}>PIN Raport</th>
+                <th style={{ width: 110 }}>PIN Raport</th>
                 <th style={{ width: 80 }}>Respons</th>
-                <th style={{ width: 80 }}>Avg Skor</th>
-                <th style={{ width: 130 }}>Link Unik</th>
+                <th style={{ width: 90 }}>Avg Skor</th>
               </tr>
             </thead>
             <tbody>
-              {pagedList.map((p, i) => {
+              {pagedList.map((p) => {
                 const pin = getPin(p.name);
-                const rs = data.responses.filter(r => r.pengajar === p.name && r.periode === activePeriode.id);
+                const rs = data.responses.filter(r => r.pengajar === p.name && r.periode === activePeriode?.id);
                 const avg = rs.length ? rs.reduce((s,r)=>s+r.avg,0)/rs.length : null;
                 return (
                   <tr key={p.name}>
                     <td className="num muted">{data.PENGAJAR.indexOf(p)+1}</td>
                     <td>
                       <div className="row" style={{ gap: 10 }}>
-                        <div style={{ width: 28, height: 28, borderRadius: 999, background: `linear-gradient(135deg, oklch(0.7 0.12 165), oklch(0.5 0.13 165))`, color: "white", display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 999, background: "linear-gradient(135deg, oklch(0.7 0.12 165), oklch(0.5 0.13 165))", color: "white", display: "grid", placeItems: "center", fontSize: 10, fontWeight: 700 }}>
                           {p.initials}
                         </div>
                         <span style={{ fontWeight: 500 }}>{p.name}</span>
@@ -207,24 +162,6 @@ function PINTab({ data }) {
                     <td className="num">{rs.length || "—"}</td>
                     <td className="num">
                       {avg != null ? <span className={"score-pill " + (avg>=95?"s100":avg>=80?"s80":avg>=65?"s60":"s40")}>{avg.toFixed(1)}</span> : <span className="muted">—</span>}
-                    </td>
-                    <td>
-                      {getToken(p.name) ? (
-                        <button onClick={() => copyLink(p.name)} style={{
-                          display: "inline-flex", gap: 5, alignItems: "center",
-                          background: copied === p.name ? "oklch(0.55 0.14 150)" : "var(--accent-soft)",
-                          color: copied === p.name ? "white" : "var(--accent-strong)",
-                          border: "none", padding: "5px 10px", borderRadius: 8,
-                          fontSize: 12, fontWeight: 600, cursor: "pointer", transition: "all 0.2s",
-                        }}>
-                          <Icon name={copied === p.name ? "check" : "link"} size={12}/>
-                          {copied === p.name ? "Tersalin!" : "Salin Link"}
-                        </button>
-                      ) : (
-                        <span style={{ fontSize: 12, color: "var(--fg-muted)" }}>
-                          {pinsLoading ? "memuat…" : "—"}
-                        </span>
-                      )}
                     </td>
                   </tr>
                 );
