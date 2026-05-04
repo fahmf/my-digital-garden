@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp /tmp/dashboard/project/Dashboard.html /c/Users/hpstd/Dashboard/Dashboard.html)",
+      "Bash(cp /tmp/dashboard/project/Raport.html /c/Users/hpstd/Dashboard/Raport.html)",
+      "Bash(cp /tmp/dashboard/project/styles.css /c/Users/hpstd/Dashboard/styles.css)",
+      "Bash(cp /tmp/dashboard/project/config.js /c/Users/hpstd/Dashboard/config.js)",
+      "Bash(cp /tmp/dashboard/project/data.js /c/Users/hpstd/Dashboard/data.js)",
+      "Bash(npx --version)",
+      "Bash(npx serve *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/Dashboard.html)"
+    ]
+  }
+}
