@@ -284,8 +284,6 @@ function App() {
     return r;
   }, [data, periode, seg, search]);
 
-  if (!data || !periode) return null;
-
   // --- All hooks above; safe to early-return below ---
   if (loading) return (
     <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "var(--bg)" }}>
@@ -315,6 +313,7 @@ function App() {
     </div>
   );
 
+  if (!data || !periode) return null;
 
   const tabs = [
     { id: "overview", label: "Overview", icon: "home" },
@@ -418,7 +417,7 @@ function App() {
               <Icon name="chev_right" size={12}/>
               <span>Evaluasi Pengajar</span>
               <Icon name="chev_right" size={12}/>
-              <span className="crumb-current">{activePeriode.label}</span>
+              <span className="crumb-current">{activePeriode?.label}</span>
             </div>
             <div className="spacer"/>
             <div className="search-box">
@@ -441,7 +440,7 @@ function App() {
             </div>
             <div>
               <div className="banner-eyebrow">
-                <span className="live-dot"/> Live · Periode {activePeriode.label}
+                <span className="live-dot"/> Live · Periode {activePeriode?.label}
               </div>
               <h1 className="banner-title">
                 Dashboard Evaluasi <span className="accent">Pengajar I'dad Lughawi</span>

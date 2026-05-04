@@ -243,6 +243,9 @@
     });
   });
 
+  // Sort PENGAJAR alphabetically — PIN = posisi urutan alfabet (sama dengan live mode)
+  PENGAJAR.sort((a, b) => a.name.localeCompare(b.name));
+
   // Sort by timestamp
   responses.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
